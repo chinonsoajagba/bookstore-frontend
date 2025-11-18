@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  <title>Bookstore</title>
+  <script src="https://unpkg.com/vue@2.7.8/dist/vue.js"></script>
+</head>
+
+<body>
+  <div id="app">
+    <header>
+      {{ sitename }}
+      <button class="checkout-btn" v-on:click="toggleCart" :disabled="cart.length === 0">
+        <div class="cart-info">
+          <span>{{ cart.length }}</span>
+          <span>${{ cartTotal.toFixed(2) }}</span>
+        </div>
+        <span class="fa-solid fa-cart-shopping"></span>
+        {{ showCart ? 'Back to Books' : 'View Cart' }}
+      </button>
+    </header>
+
+    <!-- Books Page -->
+    <div class="lessons-page" :class="{ active: !showCart }">
+      <div class="controls-container">
+        <div class="search-container">
+          <input 
+            type="text" 
+            v-model="searchQuery" 
+            placeholder="Search books by title or description..." 
+            class="search-bar">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        </div>
+
+        <div class="sort-controls">
+          <select v-model="sortBy" class="sort-select">
+            <option value="">Sort by</option>
+            <option value="title">Title</option>
+            <option value="price">Price</option>
+            <option value="availableInventory">Available</option>
+          </select>
+
+          <select v-model="sortOrder" class="order-select" :disabled="!sortBy">
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+        </div>
+      </div>
+
+      <main>
+        <figure v-for="book in sortedAndFilteredBooks" :key="book._id">
+          <img :src="book.image" :alt="'Cover of ' + book.title">
+          
+          <!-- Font Awesome Icon -->
+          <div class="book-icon">
+            <i class="fa-solid" :class="book.icon"></i>
+          </div>
+          
+          <h2 v-text="book.title"></h2>
+          <p v-html="book.description"></p>
+          <p class="price">Price: ${{ book.price.toFixed(2) }}</p>
+          <p>Available: {{ book.availableInventory }}</p>
+          <button 
+            @click="addToCart(book)"
+            :disabled="book.availableInventory === 0"
+            class="add-to-cart-btn">
+            {{ book.availableInventory > 0 ? 'Add to cart' : 'Out of stock' }}
+          </button>
+        </figure>
+      </main>
+    </div>
+
+    <!-- Cart Page -->
+    <div class="cart-page" :class="{ active: showCart }">
+      <div class="controls-container">
+        <h2>Shopping Cart</h2>
+      </div>
+
+      <main>
+        <div v-if="cart.length === 0" class="empty-cart">
+          <p>Your cart is empty</p>
+        </div>
+
+        <div v-else>
+          <div v-for="item in cart" :key="item.id" class="cart-item">
+            <div class="item-details">
+              <h3>{{ getBookTitle(item.id) }}</h3>
+              <p class="price">${{ item.price.toFixed(2) }}</p>
+            </div>
+            <button @click="removeFromCart(item)" class="remove-btn">
+              Remove
+            </button>
+          </div>
+
+          <div class="cart-total">
+            <h3>Total: ${{ cartTotal.toFixed(2) }}</h3>
+            
+            <!-- Checkout Form -->
+            <div class="checkout-form">
+              <h3>Checkout</h3>
+              <div class="form-group">
+                <input 
+                  type="text" 
+                  v-model="checkoutData.name" 
+                  placeholder="Full Name (letters only)" 
+                  class="form-input">
+                <div class="error-message" v-if="errors.name">{{ errors.name }}</div>
+              </div>
+              
+              <div class="form-group">
+                <input 
+                  type="text" 
+                  v-model="checkoutData.phone" 
+                  placeholder="Phone Number (numbers only)" 
+                  class="form-input">
+                <div class="error-message" v-if="errors.phone">{{ errors.phone }}</div>
+              </div>
+              
+              <button 
+                @click="processCheckout" 
+                :disabled="!isCheckoutValid" 
+                class="checkout-submit-btn">
+                Submit Order
+              </button>
+              
+              <div v-if="orderConfirmed" class="order-confirmation">
+                <p>✅ Order submitted successfully!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    let webstore = new Vue({
+      el: "#app",
+      data: {
+        sitename: "Bookstore",
+        searchQuery: "",
+        sortBy: "",
+        sortOrder: "asc",
+        showCart: false,
+        orderConfirmed: false,
+        checkoutData: {
+          name: "",
+          phone: ""
+        },
+        errors: {},
+        products: [], // Empty array - will be filled from API
+        cart: [],
+        apiBaseUrl: "http://127.0.0.1:3000" 
+      },
+      methods: {
+        // Fetch books from API
+        fetchBooks: async function() {
+          try {
+            console.log('Fetching books from API...');
+            const response = await fetch(`${this.apiBaseUrl}/books`);
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const books = await response.json();
+            console.log('Books loaded from API:', books);
+            this.products = books;
+          } catch (error) {
+            console.error('Failed to fetch books from API:', error);
+            console.log('Using fallback books data...');
+            // Fallback to local data if API fails
+            this.products = this.getFallbackBooks();
+          }
+        },
+
+        addToCart: async function(book) {
+          if (this.canAddToCart(book)) {
+            this.cart.push({
+              id: book._id, // Use _id from API
+              price: book.price,
+              title: book.title
+            });
+            
+            // Update inventory via API
+            try {
+              const response = await fetch(`${this.apiBaseUrl}/books/${book._id}`, {
+                method: 'PUT',
+                headers: { 
+                  'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({
+                  availableInventory: book.availableInventory - 1
+                })
+              });
+              
+              if (response.ok) {
+                book.availableInventory--;
+                console.log('Inventory updated successfully');
+              } else {
+                console.error('Failed to update inventory via API');
+              }
+              
+              this.saveCartToStorage();
+            } catch (error) {
+              console.error('Failed to update inventory:', error);
+              // Still update locally even if API fails
+              book.availableInventory--;
+              this.saveCartToStorage();
+            }
+          }
+        },
+        
+        removeFromCart: async function(cartItem) {
+          this.cart = this.cart.filter(item => item.id !== cartItem.id);
+          
+          // Restore inventory via API
+          try {
+            const book = this.products.find(p => p._id === cartItem.id);
+            if (book) {
+              const response = await fetch(`${this.apiBaseUrl}/books/${book._id}`, {
+                method: 'PUT',
+                headers: { 
+                  'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({
+                  availableInventory: book.availableInventory + 1
+                })
+              });
+              
+              if (response.ok) {
+                book.availableInventory++;
+                console.log('Inventory restored successfully');
+              }
+            }
+            this.saveCartToStorage();
+          } catch (error) {
+            console.error('Failed to restore inventory:', error);
+            // Still restore locally even if API fails
+            const book = this.products.find(p => p._id === cartItem.id);
+            if (book) {
+              book.availableInventory++;
+            }
+            this.saveCartToStorage();
+          }
+        },
+        
+        canAddToCart: function(book) {
+          return book.availableInventory > 0;        
+        },
+        
+        toggleCart: function() {
+          this.showCart = !this.showCart;
+          this.orderConfirmed = false;
+        },
+        
+        getBookTitle: function(bookId) {
+          const book = this.products.find(p => p._id === bookId);
+          return book ? book.title : 'Unknown Book';
+        },
+        
+        validateCheckout: function() {
+          this.errors = {};
+          let isValid = true;
+          
+          const nameRegex = /^[A-Za-z\s]+$/;
+          if (!this.checkoutData.name) {
+            this.errors.name = 'Name is required';
+            isValid = false;
+          } else if (!nameRegex.test(this.checkoutData.name)) {
+            this.errors.name = 'Name must contain letters only';
+            isValid = false;
+          }
+          
+          const phoneRegex = /^\d+$/;
+          if (!this.checkoutData.phone) {
+            this.errors.phone = 'Phone is required';
+            isValid = false;
+          } else if (!phoneRegex.test(this.checkoutData.phone)) {
+            this.errors.phone = 'Phone must contain numbers only';
+            isValid = false;
+          }
+          
+          return isValid;
+        },
+        
+        processCheckout: async function() {
+          if (this.validateCheckout()) {
+            try {
+              const orderData = {
+                name: this.checkoutData.name,
+                phone: this.checkoutData.phone,
+                bookIDs: this.cart.map(item => item.id),
+                quantities: this.cart.map(() => 1), // Each item quantity is 1
+                total: this.cartTotal
+              };
+
+              console.log('Submitting order:', orderData);
+
+              const response = await fetch(`${this.apiBaseUrl}/orders`, {
+                method: 'POST',
+                headers: { 
+                  'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify(orderData)
+              });
+
+              if (response.ok) {
+                const orderResult = await response.json();
+                console.log('Order created successfully:', orderResult);
+                
+                this.orderConfirmed = true;
+                
+                setTimeout(() => {
+                  this.cart = [];
+                  this.checkoutData = { name: "", phone: "" };
+                  this.showCart = false;
+                  this.saveCartToStorage();
+                }, 2000);
+              } else {
+                const errorText = await response.text();
+                console.error('Order failed with status:', response.status, errorText);
+                alert('Failed to submit order. Please try again.');
+              }
+            } catch (error) {
+              console.error('Order submission failed:', error);
+              alert('Order submission failed. Please check your connection.');
+            }
+          }
+        },
+        
+        saveCartToStorage: function() {
+          localStorage.setItem('bookstoreCart', JSON.stringify(this.cart));
+        },
+        
+        loadCartFromStorage: function() {
+          const savedCart = localStorage.getItem('bookstoreCart');
+          if (savedCart) {
+            this.cart = JSON.parse(savedCart);
+          }
+        },
+
+        getFallbackBooks: function() {
+          // Your original hardcoded books as fallback
+          return [
+            { 
+              _id: "1001",
+              title: "Mathematics",
+              description: "A full course work of Advanced Mathematics.",
+              price: 20.00,
+              image: "images/maths1.jpg",
+              availableInventory: 5,
+              icon: "fa-calculator",
+              subject: "Math"
+            },
+            { 
+              _id: "1002",
+              title: "English",
+              description: "Advanced Level English.",
+              price: 10.00,
+              image: "images/english2.jpg",
+              availableInventory: 5,
+              icon: "fa-book",
+              subject: "English"
+            },
+            {
+              _id: "1003",
+              title: "Computer Science",
+              description: "Intro to Computer Science.",
+              price: 8.00,
+              image: "images/computer.jpg",
+              availableInventory: 5,
+              icon: "fa-laptop-code",
+              subject: "Computer Science"
+            },
+            { 
+              _id: "1004",
+              title: "International Relations",
+              description: "A full study guide on the intro to International Relations.",
+              price: 6.00,
+              image: "images/inter-rel.jpg",
+              availableInventory: 5,
+              icon: "fa-globe",
+              subject: "Politics"
+            },
+            {
+              _id: "1005",
+              title: "Commerce",
+              description: "A full study guide to your future of Commerce.",
+              price: 5.50,
+              image: "images/commerce.jpg",
+              availableInventory: 12,
+              icon: "fa-chart-line",
+              subject: "Business"
+            },
+            {
+              _id: "1006",
+              title: "Medicine",
+              description: "Beginner to Advanced level courses.",
+              price: 12.00,
+              image: "images/medicine.jpg",
+              availableInventory: 5,
+              icon: "fa-stethoscope",
+              subject: "Science"
+            },
+            {
+              _id: "1007",
+              title: "Engineering",
+              description: "Advanced Engineering courses.",
+              price: 15.00,
+              image: "images/engineering.jpg",
+              availableInventory: 5,
+              icon: "fa-gears",
+              subject: "Engineering"
+            },
+            {
+              _id: "1008",
+              title: "Law",
+              description: "Brand Law.",
+              price: 9.00,
+              image: "images/law.jpg",
+              availableInventory: 5,
+              icon: "fa-gavel",
+              subject: "Law"
+            },
+            {
+              _id: "1009",
+              title: "Dark Magic",
+              description: "Shadow Wizard Money Gang.",
+              price: 25.00,
+              image: "images/magic.jpg",
+              availableInventory: 5,
+              icon: "fa-wand-magic-sparkles",
+              subject: "Mystical Arts"
+            },
+            {
+              _id: "1010",
+              title: "Physics",
+              description: "Fundamental principles of Physics.",
+              price: 18.00,
+              image: "images/physics.jpg",
+              availableInventory: 8,
+              icon: "fa-atom",
+              subject: "Science"
+            }
+          ];
+        }
+      },
+      computed: {
+        filteredBooks: function() {
+          if (!this.searchQuery) {
+            return this.products;
+          }
+          const query = this.searchQuery.toLowerCase();
+          return this.products.filter(book => 
+            book.title.toLowerCase().includes(query) ||
+            book.description.toLowerCase().includes(query)
+          );
+        },
+        
+        sortedAndFilteredBooks: function() {
+          let books = [...this.filteredBooks];
+          
+          if (this.sortBy) {
+            books.sort((a, b) => {
+              let aVal = a[this.sortBy];
+              let bVal = b[this.sortBy];
+              
+              if (typeof aVal === 'string') {
+                aVal = aVal.toLowerCase();
+                bVal = bVal.toLowerCase();
+              }
+              
+              if (aVal < bVal) return this.sortOrder === 'asc' ? -1 : 1;
+              if (aVal > bVal) return this.sortOrder === 'asc' ? 1 : -1;
+              return 0;
+            });
+          }
+          
+          return books;
+        },
+        
+        cartTotal: function() {
+          return this.cart.reduce((total, item) => total + item.price, 0);
+        },
+        
+        isCheckoutValid: function() {
+          return this.cart.length > 0 && 
+                 this.checkoutData.name && 
+                 this.checkoutData.phone &&
+                 /^[A-Za-z\s]+$/.test(this.checkoutData.name) &&
+                 /^\d+$/.test(this.checkoutData.phone);
+        }
+      },
+      mounted: function() {
+        this.loadCartFromStorage();
+        this.fetchBooks(); // Load books from API when page loads
+      }
+    })
+  </script>
+</body>
+</html>
