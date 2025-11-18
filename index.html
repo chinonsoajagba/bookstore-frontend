@@ -179,11 +179,15 @@
 
         addToCart: async function(book) {
   if (this.canAddToCart(book)) {
-    this.cart.push({
+    // Add unique identifier to each cart item
+    const cartItem = {
       id: book._id,
       price: book.price,
-      title: book.title
-    });
+      title: book.title,
+      uniqueId: book._id + '_' + Date.now() // Add unique identifier
+    };
+    
+    this.cart.push(cartItem);
     
     // Update inventory via API
     try {
@@ -207,14 +211,12 @@
         book.availableInventory = updatedBook.availableInventory;
       } else {
         console.error('Failed to update inventory via API. Status:', response.status);
-        // Still update locally for better user experience
         book.availableInventory--;
       }
       
       this.saveCartToStorage();
     } catch (error) {
       console.error('Failed to update inventory:', error);
-      // Update locally even if API fails
       book.availableInventory--;
       this.saveCartToStorage();
     }
@@ -222,39 +224,50 @@
 },
         
         removeFromCart: async function(cartItem) {
-  this.cart = this.cart.filter(item => item.id !== cartItem.id);
+  console.log('Removing item:', cartItem);
   
-  try {
-    const book = this.products.find(p => p._id === cartItem.id);
-    if (book) {
-      console.log('Restoring inventory for book:', book._id);
-      
-      const response = await fetch(`${this.apiBaseUrl}/books/${book._id}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify({
-          availableInventory: book.availableInventory + 1
-        })
-      });
-      
-      console.log('Restore response status:', response.status);
-      
-      if (response.ok) {
-        const updatedBook = await response.json();
-        book.availableInventory = updatedBook.availableInventory;
-      } else {
-        console.error('Failed to restore inventory via API');
-        book.availableInventory++;
+  // Find the index of the specific item to remove
+  const itemIndex = this.cart.findIndex(item => 
+    item.id === cartItem.id && item === cartItem
+  );
+  
+  if (itemIndex !== -1) {
+    // Remove only the specific item
+    this.cart.splice(itemIndex, 1);
+    
+    // Restore inventory via API
+    try {
+      const book = this.products.find(p => p._id === cartItem.id);
+      if (book) {
+        console.log('Restoring inventory for book:', book._id);
+        
+        const response = await fetch(`${this.apiBaseUrl}/books/${book._id}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify({
+            availableInventory: book.availableInventory + 1
+          })
+        });
+        
+        console.log('Restore response status:', response.status);
+        
+        if (response.ok) {
+          const updatedBook = await response.json();
+          book.availableInventory = updatedBook.availableInventory;
+        } else {
+          console.error('Failed to restore inventory via API');
+          book.availableInventory++;
+        }
       }
+      this.saveCartToStorage();
+    } catch (error) {
+      console.error('Failed to restore inventory:', error);
+      const book = this.products.find(p => p._id === cartItem.id);
+      if (book) book.availableInventory++;
+      this.saveCartToStorage();
     }
-    this.saveCartToStorage();
-  } catch (error) {
-    console.error('Failed to restore inventory:', error);
-    const book = this.products.find(p => p._id === cartItem.id);
-    if (book) book.availableInventory++;
-    this.saveCartToStorage();
   }
 },
         
