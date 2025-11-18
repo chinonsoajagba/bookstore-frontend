@@ -76,6 +76,10 @@
     <!-- Cart Page -->
     <div class="cart-page" :class="{ active: showCart }">
       <div class="controls-container">
+        <button class="back-btn" @click="toggleCart">
+        <i class="fa-solid fa-arrow-left"></i>
+        Back to Books
+      </button>
         <h2>Shopping Cart</h2>
       </div>
 
