@@ -228,17 +228,17 @@ button {
 }
 
 .book-icon {
-  font-size: 2rem;
+  font-size: 1.5rem; /* Reduced from 2rem */
   color: #3498db;
   margin: 10px 0;
 }
 
 .book-icon .fa-solid {
   background-color: #ecf0f1;
-  padding: 15px;
+  padding: 10px; /* Reduced from 15px */
   border-radius: 50%;
-  width: 60px;
-  height: 60px;
+  width: 50px; /* Reduced from 60px */
+  height: 50px; /* Reduced from 60px */
   display: flex;
   align-items: center;
   justify-content: center;

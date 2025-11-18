@@ -182,48 +182,50 @@
         },
 
         addToCart: async function(book) {
-  if (this.canAddToCart(book)) {
-    // Add unique identifier to each cart item
+  // ADD PROPER VALIDATION - check inventory BEFORE adding
+  if (this.canAddToCart(book) && book.availableInventory > 0) {
     const cartItem = {
       id: book._id,
       price: book.price,
       title: book.title,
-      uniqueId: book._id + '_' + Date.now() // Add unique identifier
+      uniqueId: book._id + '_' + Date.now()
     };
     
     this.cart.push(cartItem);
     
-    // Update inventory via API
     try {
       console.log('Updating inventory for book:', book._id);
       
       const response = await fetch(`${this.apiBaseUrl}/books/${book._id}`, {
         method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json' 
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           availableInventory: book.availableInventory - 1
         })
       });
       
-      console.log('Update response status:', response.status);
-      
       if (response.ok) {
         const updatedBook = await response.json();
-        console.log('Inventory updated successfully:', updatedBook);
         book.availableInventory = updatedBook.availableInventory;
       } else {
-        console.error('Failed to update inventory via API. Status:', response.status);
-        book.availableInventory--;
+        console.error('Failed to update inventory via API');
+        // Only update locally if API fails AND inventory is valid
+        if (book.availableInventory > 0) {
+          book.availableInventory--;
+        }
       }
       
       this.saveCartToStorage();
     } catch (error) {
       console.error('Failed to update inventory:', error);
-      book.availableInventory--;
+      // Only update locally if inventory is valid
+      if (book.availableInventory > 0) {
+        book.availableInventory--;
+      }
       this.saveCartToStorage();
     }
+  } else {
+    console.log('Cannot add to cart - no inventory available');
   }
 },
         
