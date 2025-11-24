@@ -42,7 +42,7 @@ function onToggleCart() {
         <span>${{ cartTotal.toFixed(2) }}</span>
       </div>
       <span class="fa-solid fa-cart-shopping"></span>
-      {{ showCart ? 'Back to Books' : 'View Cart' }}
+      {{ showCart ? 'Back to Lessons' : 'View Cart' }}
     </button>
   </header>
 </template>

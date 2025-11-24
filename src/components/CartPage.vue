@@ -82,7 +82,7 @@ function onSubmitCheckout() {
     <div class="controls-container">
       <button class="back-btn" @click="onToggleCart">
         <i class="fa-solid fa-arrow-left"></i>
-        Back to Books
+        Back to Lessons
       </button>
       <h2>Shopping Cart</h2>
     </div>

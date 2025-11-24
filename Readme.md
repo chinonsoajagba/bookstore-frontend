@@ -1,4 +1,4 @@
-# Bookstore Full Stack Application
+# Lessons Full Stack Application
 
 ## Live Demo
 
@@ -14,8 +14,8 @@
 
 ### Frontend (Vue.js)
 
-- Display list of books with Font Awesome icons
-- Search books by title/description
+- Display list of lessons with Font Awesome icons
+- Search lessons by title/description
 - Sort by title, price, or availability (ascending/descending)
 - Add to cart with inventory management
 - Shopping cart with remove functionality
@@ -26,10 +26,10 @@
 ### Backend (Node.js/Express.js)
 
 - REST API with CORS support
-- GET /books - Fetch all books
-- GET /books/search - Search books
+- GET /lessons - Fetch all lessons
+- GET /lessons/search - Search lessons
 - POST /orders - Create new orders
-- PUT /books/:id - Update book inventory
+- PUT /lessons/:id - Update lesson inventory
 - Logger middleware
 
 ## Technology Stack
