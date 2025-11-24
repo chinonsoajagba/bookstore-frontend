@@ -113,7 +113,6 @@ function onAddToCart(lesson) {
         </button>
       </figure>
       </main>
-    </div>
   </div>
 </template>
 
