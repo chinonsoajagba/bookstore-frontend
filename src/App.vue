@@ -136,7 +136,17 @@ async function fetchLessons() {
 
     const lessons = await response.json()
     console.log('Lessons loaded from API:', lessons)
-    products.value = lessons
+    
+    // Map API fields to frontend expectations
+    const mappedLessons = lessons.map(lesson => ({
+      ...lesson,
+      title: lesson.subject,
+      availableInventory: lesson.spaces,
+      image: `${apiBaseUrl}/images/${lesson.image}`,
+      description: `A full course work of ${lesson.subject}. Location: ${lesson.location}`
+    }))
+    
+    products.value = mappedLessons
   } catch (error) {
     console.error('Failed to fetch lessons from API:', error)
     console.log('Using fallback lessons data...')
