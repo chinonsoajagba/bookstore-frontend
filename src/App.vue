@@ -197,13 +197,13 @@ async function addToCart(lesson) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          availableInventory: lesson.availableInventory - 1,
+          spaces: lesson.availableInventory - 1,
         }),
       })
 
       if (response.ok) {
         const updatedLesson = await response.json()
-        lesson.availableInventory = updatedLesson.availableInventory
+        lesson.availableInventory = updatedLesson.spaces
       } else {
         console.error('Failed to update inventory via API')
         if (lesson.availableInventory > 0) {
@@ -245,7 +245,7 @@ async function removeFromCart(cartItem) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            availableInventory: lesson.availableInventory + 1,
+            spaces: lesson.availableInventory + 1,
           }),
         })
 
@@ -253,7 +253,7 @@ async function removeFromCart(cartItem) {
 
         if (response.ok) {
           const updatedLesson = await response.json()
-          lesson.availableInventory = updatedLesson.availableInventory
+          lesson.availableInventory = updatedLesson.spaces
         } else {
           console.error('Failed to restore inventory via API')
           lesson.availableInventory++
@@ -310,9 +310,8 @@ async function processCheckout() {
       const orderData = {
         name: checkoutData.value.name,
         phone: checkoutData.value.phone,
-        bookIDs: cart.value.map((item) => item.id),
-        quantities: cart.value.map(() => 1),
-        total: cartTotal.value,
+        lessonIDs: cart.value.map((item) => item.id),
+        numSpaces: cart.value.map(() => 1),
       }
 
       console.log('Submitting order:', orderData)
